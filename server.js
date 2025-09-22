@@ -77,28 +77,34 @@ app.get("/openapi.json", (req, res) => {
   });
 });
 
-// Save GI
+// Save GI with immediate response
 app.post("/saveToGI", async (req, res) => {
   const { fileName, content } = req.body;
-  const zapierResponse = await fetch(ZAPIER_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "create", fileName, content })
-  });
-  const data = await zapierResponse.json();
-  res.json(data);
+  try {
+    fetch(ZAPIER_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create", fileName, content })
+    });
+    res.json({ status: "success", fileName, message: "Queued for Zapier" });
+  } catch (error) {
+    res.json({ status: "error", message: error.message });
+  }
 });
 
-// Update GI
+// Update GI with immediate response
 app.post("/updateGI", async (req, res) => {
   const { fileName, content } = req.body;
-  const zapierResponse = await fetch(ZAPIER_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "update", fileName, content })
-  });
-  const data = await zapierResponse.json();
-  res.json(data);
+  try {
+    fetch(ZAPIER_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update", fileName, content })
+    });
+    res.json({ status: "success", fileName, message: "Update queued for Zapier" });
+  } catch (error) {
+    res.json({ status: "error", message: error.message });
+  }
 });
 
 // Start server
