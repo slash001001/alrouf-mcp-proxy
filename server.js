@@ -18,9 +18,9 @@ app.get("/.well-known/ai-plugin.json", (req, res) => {
     auth: { type: "none" },
     api: {
       type: "openapi",
-      url: req.protocol + "://" + req.get("host") + "/openapi.json"
+      url: "https://" + req.get("host") + "/openapi.json"
     },
-    logo_url: req.protocol + "://" + req.get("host") + "/logo.png"
+    logo_url: "https://" + req.get("host") + "/logo.png"
   });
 });
 
@@ -29,6 +29,7 @@ app.get("/openapi.json", (req, res) => {
   res.json({
     openapi: "3.0.1",
     info: { title: "Alrouf GI Manager", version: "1.0.0" },
+    servers: [{ url: "https://" + req.get("host") }],
     paths: {
       "/saveToGI": {
         post: {
