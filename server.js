@@ -24,16 +24,21 @@ app.get("/.well-known/ai-plugin.json", (req, res) => {
   });
 });
 
-// OpenAPI spec
+// OpenAPI schema
 app.get("/openapi.json", (req, res) => {
   res.json({
     openapi: "3.0.1",
-    info: { title: "Alrouf GI Manager", version: "1.0.0" },
+    info: {
+      title: "Alrouf GI Manager",
+      version: "1.0.0",
+      description: "API for saving and updating GI documents via Zapier"
+    },
     servers: [{ url: "https://" + req.get("host") }],
     paths: {
       "/saveToGI": {
         post: {
           summary: "Create GI Document",
+          operationId: "saveToGI",
           requestBody: {
             required: true,
             content: {
@@ -49,12 +54,29 @@ app.get("/openapi.json", (req, res) => {
               }
             }
           },
-          responses: { "200": { description: "Document created" } }
+          responses: {
+            "200": {
+              description: "Success",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      status: { type: "string" },
+                      fileName: { type: "string" },
+                      message: { type: "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       "/updateGI": {
         post: {
           summary: "Update GI Document",
+          operationId: "updateGI",
           requestBody: {
             required: true,
             content: {
@@ -70,14 +92,30 @@ app.get("/openapi.json", (req, res) => {
               }
             }
           },
-          responses: { "200": { description: "Document updated" } }
+          responses: {
+            "200": {
+              description: "Success",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      status: { type: "string" },
+                      fileName: { type: "string" },
+                      message: { type: "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
   });
 });
 
-// Save GI with immediate response
+// Save GI endpoint
 app.post("/saveToGI", async (req, res) => {
   const { fileName, content } = req.body;
   try {
@@ -92,7 +130,7 @@ app.post("/saveToGI", async (req, res) => {
   }
 });
 
-// Update GI with immediate response
+// Update GI endpoint
 app.post("/updateGI", async (req, res) => {
   const { fileName, content } = req.body;
   try {
