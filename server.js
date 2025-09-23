@@ -24,7 +24,7 @@ app.get("/.well-known/ai-plugin.json", (req, res) => {
   });
 });
 
-// OpenAPI schema
+// OpenAPI schema (متوافق مع MCP)
 app.get("/openapi.json", (req, res) => {
   res.json({
     openapi: "3.0.1",
@@ -59,14 +59,7 @@ app.get("/openapi.json", (req, res) => {
               description: "Success",
               content: {
                 "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      status: { type: "string" },
-                      fileName: { type: "string" },
-                      message: { type: "string" }
-                    }
-                  }
+                  schema: { $ref: "#/components/schemas/Response" }
                 }
               }
             }
@@ -97,17 +90,22 @@ app.get("/openapi.json", (req, res) => {
               description: "Success",
               content: {
                 "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      status: { type: "string" },
-                      fileName: { type: "string" },
-                      message: { type: "string" }
-                    }
-                  }
+                  schema: { $ref: "#/components/schemas/Response" }
                 }
               }
             }
+          }
+        }
+      }
+    },
+    components: {
+      schemas: {
+        Response: {
+          type: "object",
+          properties: {
+            status: { type: "string" },
+            fileName: { type: "string" },
+            message: { type: "string" }
           }
         }
       }
@@ -150,3 +148,4 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`MCP Proxy running on http://localhost:${port}`);
 });
+
