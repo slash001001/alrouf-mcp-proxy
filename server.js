@@ -7,8 +7,15 @@ app.use(express.json());
 // Zapier Webhook URL
 const ZAPIER_WEBHOOK_URL = "https://hooks.zapier.com/hooks/catch/24702328/u12yr9m/";
 
+// Helper to set headers
+function setJSONHeaders(res) {
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+}
+
 // MCP Plugin metadata
 app.get("/.well-known/ai-plugin.json", (req, res) => {
+  setJSONHeaders(res);
   res.json({
     schema_version: "v1",
     name_for_human: "Alrouf GI Manager",
@@ -24,8 +31,9 @@ app.get("/.well-known/ai-plugin.json", (req, res) => {
   });
 });
 
-// OpenAPI schema (متوافق مع MCP)
+// OpenAPI schema (MCP compatible)
 app.get("/openapi.json", (req, res) => {
+  setJSONHeaders(res);
   res.json({
     openapi: "3.0.1",
     info: {
@@ -115,6 +123,7 @@ app.get("/openapi.json", (req, res) => {
 
 // Save GI endpoint
 app.post("/saveToGI", async (req, res) => {
+  setJSONHeaders(res);
   const { fileName, content } = req.body;
   try {
     fetch(ZAPIER_WEBHOOK_URL, {
@@ -130,6 +139,7 @@ app.post("/saveToGI", async (req, res) => {
 
 // Update GI endpoint
 app.post("/updateGI", async (req, res) => {
+  setJSONHeaders(res);
   const { fileName, content } = req.body;
   try {
     fetch(ZAPIER_WEBHOOK_URL, {
@@ -148,4 +158,3 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`MCP Proxy running on http://localhost:${port}`);
 });
-
