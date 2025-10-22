@@ -1,32 +1,63 @@
-# Alrouf GI MCP (Remote Server)
+# Anis Automation Proxy
 
-A minimal **Model Context Protocol** server exposing two tools for Alrouf GI:
+Serverless automation proxy that routes MCP commands to the correct backend:
 
-- `saveToGI(fileName, content)` → creates a Google Doc via Zapier
-- `updateGI(fileName, content)` → appends content to an existing Doc via Zapier
+- **n8n Cloud** for operational workflows
+- **GitHub repository dispatch** for heavy/async tasks (`n8n-automation-`)
+- **Zapier** for Google Docs / Slack actions
+- **Direct HTTP** calls when required
 
-## Deploy (Vercel)
-1) Create a new repo and upload `server.js`, `package.json`, `vercel.json`  
-2) Import the repo into Vercel → Deploy  
-3) (Optional) Set env var `ZAPIER_WEBHOOK_URL` in Vercel → redeploy
+All responses share the shape `{ ok, command, dest, data }`.
 
-## Connect in ChatGPT (Developer Mode → New Connector)
-- **MCP Server URL**: `https://YOUR_DOMAIN.vercel.app/mcp`
-- **Auth**: None (unless you add your own)
-- After connect, tools should appear: `saveToGI`, `updateGI`
+## Endpoints
 
-## Quick Self-Test (curl)
-Initialize:
+| Endpoint | Method | Description |
+| -------- | ------ | ----------- |
+| `/api/anis` | POST | Primary router for ChatGPT / automations |
+| `/api/mcp`  | POST | Alias of `/api/anis` to keep legacy clients working |
+
+Only `POST` (and `OPTIONS` for CORS) are supported.
+
+## Command Routing
+
+| Command | Destination |
+| ------- | ----------- |
+| `run`, `report`, `summary`, `email`, `sheet` | `N8N_WEBHOOK_URL` |
+| `git:*` | GitHub `repository_dispatch` (`n8n-automation-`) |
+| `zap:*` | `ZAPIER_WEBHOOK_URL` |
+| `http` | Arbitrary HTTP call using `args.url`, `args.method`, `args.body` |
+| `status` | Local health summary |
+
+Unknown commands return a structured help message with supported prefixes.
+
+## Environment Variables
+
+Copy `.env.example` and supply:
+
 ```
-curl -sX POST https://YOUR_DOMAIN.vercel.app/mcp   -H 'Content-Type: application/json'   -d '{"jsonrpc":"2.0","id":"1","method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"curl","version":"0.1"},"capabilities":{}}}'
+MCP_TOKEN=           # Optional: required header x-mcp-token if set
+N8N_WEBHOOK_URL=     # Required for run/report/summary/email/sheet
+ZAPIER_WEBHOOK_URL=  # Required for zap:* commands
+GH_TOKEN=            # Required for git:* commands
+GH_REPO=alrouf/n8n-automation-  # Optional override repository
 ```
 
-List tools:
-```
-curl -sX POST https://YOUR_DOMAIN.vercel.app/mcp   -H 'Content-Type: application/json'   -d '{"jsonrpc":"2.0","id":"2","method":"tools/list","params":{}}'
+## Local Development
+
+```bash
+npm install
+npm start
 ```
 
-Call a tool (example):
+The express server proxies `/api/anis` and `/api/mcp` to the same router used in production.
+
+## Test Requests
+
 ```
-curl -sX POST https://YOUR_DOMAIN.vercel.app/mcp   -H 'Content-Type: application/json'   -d '{"jsonrpc":"2.0","id":"3","method":"tools/call","params":{"name":"saveToGI","arguments":{"fileName":"GI_Test_MCP","content":"Hello from MCP"}}}'
+curl -X POST http://localhost:3000/api/anis \
+  -H "Content-Type: application/json" \
+  -H "x-mcp-token: $MCP_TOKEN" \
+  -d '{"command":"status"}'
 ```
+
+Replace `status` with `run`, `git:sync`, etc. to validate routing.
