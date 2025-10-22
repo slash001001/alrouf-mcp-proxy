@@ -4,7 +4,7 @@ const MAX_BODY_SIZE = 1024 * 1024; // 1 MiB
 
 const applyCors = (res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,x-mcp-token");
 };
 
@@ -116,6 +116,12 @@ export default async function handler(req, res) {
       return;
     }
 
+    const contentType = findHeader(req.headers, "content-type");
+    if (!contentType) {
+      sendJson(res, 200, { ok: true, message: "handshake ok" });
+      return;
+    }
+
     let bodyValue;
     try {
       bodyValue = await readJsonBody(req);
@@ -140,7 +146,7 @@ export default async function handler(req, res) {
     const hasCommand = command.trim().length > 0;
 
     if (!hasCommand) {
-      sendJson(res, 200, { ok: true, message: "handshake OK" });
+      sendJson(res, 200, { ok: true, message: "handshake ok" });
       return;
     }
 
