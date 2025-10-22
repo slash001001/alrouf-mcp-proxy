@@ -1,3 +1,70 @@
+// api/anis.js
+export default async function handler(req, res) {
+  // السماح بطلب GET من ChatGPT أثناء إنشاء الـ Connector
+  if (req.method === "GET") {
+    return res
+      .status(200)
+      .json({ ok: true, message: "Anis MCP endpoint ready (GET allowed)" });
+  }
+
+  if (req.method !== "POST") {
+    return res
+      .status(405)
+      .json({ ok: false, error: "Method Not Allowed", method: req.method });
+  }
+
+  try {
+    const { command, args = {}, actor = "khaled" } = req.body || {};
+
+    if (!command) {
+      return res.status(400).json({ ok: false, error: "Missing command" });
+    }
+
+    const routes = {
+      n8n: process.env.N8N_WEBHOOK_URL || "",
+      zapier: process.env.ZAPIER_WEBHOOK_URL || "",
+      github:
+        "https://api.github.com/repos/slash001001/n8n-automation-/dispatches",
+    };
+
+    let dest = routes.n8n;
+    if (command.startsWith("zap")) dest = routes.zapier;
+    if (command.startsWith("git")) dest = routes.github;
+
+    const forward = {
+      command,
+      args,
+      actor,
+      timestamp: new Date().toISOString(),
+    };
+
+    const resp = await fetch(dest, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.GH_TOKEN || ""}`,
+      },
+      body: JSON.stringify(forward),
+    });
+
+    const text = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+
+    res.status(200).json({
+      ok: true,
+      command,
+      dest,
+      data,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message || String(err) });
+  }
+}
 import { CommandRouterError, dispatchAutomationCommand } from "../lib/commandRouter.js";
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MiB
