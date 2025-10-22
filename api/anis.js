@@ -1,70 +1,3 @@
-// api/anis.js
-export default async function handler(req, res) {
-  // السماح بطلب GET من ChatGPT أثناء إنشاء الـ Connector
-  if (req.method === "GET") {
-    return res
-      .status(200)
-      .json({ ok: true, message: "Anis MCP endpoint ready (GET allowed)" });
-  }
-
-  if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({ ok: false, error: "Method Not Allowed", method: req.method });
-  }
-
-  try {
-    const { command, args = {}, actor = "khaled" } = req.body || {};
-
-    if (!command) {
-      return res.status(400).json({ ok: false, error: "Missing command" });
-    }
-
-    const routes = {
-      n8n: process.env.N8N_WEBHOOK_URL || "",
-      zapier: process.env.ZAPIER_WEBHOOK_URL || "",
-      github:
-        "https://api.github.com/repos/slash001001/n8n-automation-/dispatches",
-    };
-
-    let dest = routes.n8n;
-    if (command.startsWith("zap")) dest = routes.zapier;
-    if (command.startsWith("git")) dest = routes.github;
-
-    const forward = {
-      command,
-      args,
-      actor,
-      timestamp: new Date().toISOString(),
-    };
-
-    const resp = await fetch(dest, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GH_TOKEN || ""}`,
-      },
-      body: JSON.stringify(forward),
-    });
-
-    const text = await resp.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { raw: text };
-    }
-
-    res.status(200).json({
-      ok: true,
-      command,
-      dest,
-      data,
-    });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message || String(err) });
-  }
-}
 import { CommandRouterError, dispatchAutomationCommand } from "../lib/commandRouter.js";
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MiB
@@ -158,77 +91,118 @@ const formatErrorPayload = ({ error, command, dest, actor }) => ({
 });
 
 export default async function handler(req, res) {
-  applyCors(res);
-
-  if (req.method === "OPTIONS") {
-    res.statusCode = 204;
-    res.end();
-    return;
-  }
-
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST,OPTIONS");
-    sendJson(res, 405, {
-      ok: false,
-      command: null,
-      dest: null,
-      data: { error: "Method not allowed" },
-    });
-    return;
-  }
-
-  let body;
   try {
-    body = await readJsonBody(req);
-  } catch (error) {
-    const status = error instanceof CommandRouterError ? error.status : 400;
-    sendJson(
-      res,
-      status,
-      formatErrorPayload({ error, command: body?.command, dest: null, actor: body?.actor })
-    );
-    return;
-  }
+    applyCors(res);
 
-  try {
-    validateToken(req.headers);
-  } catch (error) {
-    const status = error instanceof CommandRouterError ? error.status : 401;
-    sendJson(
-      res,
-      status,
-      formatErrorPayload({ error, command: body?.command, dest: null, actor: body?.actor })
-    );
-    return;
-  }
+    if (req.method === "OPTIONS") {
+      res.statusCode = 204;
+      res.end();
+      return;
+    }
 
-  const command = body?.command;
-  const args = body?.args;
-  const actor = body?.actor;
+    if (req.method === "GET") {
+      sendJson(res, 200, { ok: true, message: "ready" });
+      return;
+    }
 
-  try {
-    const result = await dispatchAutomationCommand({ command, args, actor });
-    sendJson(res, 200, result);
-  } catch (error) {
-    if (error instanceof CommandRouterError) {
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST,GET,OPTIONS");
+      sendJson(res, 405, {
+        ok: false,
+        command: null,
+        dest: null,
+        data: { error: "Method not allowed" },
+      });
+      return;
+    }
+
+    let bodyValue;
+    try {
+      bodyValue = await readJsonBody(req);
+    } catch (error) {
+      const status = error instanceof CommandRouterError ? error.status : 400;
       sendJson(
         res,
-        error.status,
+        status,
+        formatErrorPayload({
+          error,
+          command: null,
+          dest: null,
+          actor: undefined,
+        })
+      );
+      return;
+    }
+
+    const command = typeof bodyValue?.command === "string" ? bodyValue.command : "";
+    const actor = typeof bodyValue?.actor === "string" ? bodyValue.actor : undefined;
+    const args = bodyValue?.args;
+    const hasCommand = command.trim().length > 0;
+
+    if (!hasCommand) {
+      sendJson(res, 200, { ok: true, message: "handshake OK" });
+      return;
+    }
+
+    try {
+      validateToken(req.headers);
+    } catch (error) {
+      const status = error instanceof CommandRouterError ? error.status : 401;
+      sendJson(
+        res,
+        status,
         formatErrorPayload({
           error,
           command,
-          dest: error.dest,
+          dest: null,
           actor,
         })
       );
       return;
     }
 
-    const safeError = new Error("Internal server error");
-    sendJson(
-      res,
-      500,
-      formatErrorPayload({ error: safeError, command, dest: null, actor })
-    );
+    try {
+      const result = await dispatchAutomationCommand({ command, args, actor });
+      sendJson(res, 200, result);
+    } catch (error) {
+      if (error instanceof CommandRouterError) {
+        sendJson(
+          res,
+          error.status,
+          formatErrorPayload({
+            error,
+            command,
+            dest: error.dest,
+            actor,
+          })
+        );
+        return;
+      }
+
+      const safeError = new Error("Internal server error");
+      sendJson(
+        res,
+        500,
+        formatErrorPayload({
+          error: safeError,
+          command,
+          dest: null,
+          actor,
+        })
+      );
+    }
+  } catch (error) {
+    if (!res.headersSent) {
+      sendJson(
+        res,
+        500,
+        formatErrorPayload({
+          error: new Error("Internal server error"),
+          command: null,
+          dest: null,
+          actor: undefined,
+        })
+      );
+    }
   }
 }
