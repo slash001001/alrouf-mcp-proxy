@@ -1,33 +1,21 @@
 import express from "express";
-import anisHandler from "./api/anis.js";
-import mcpHandler from "./api/mcp.js";
+import anis from "./api/anis.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-const forward = (handler) => async (req, res) => {
+const wrap = (handler) => async (req, res, next) => {
   try {
     await handler(req, res);
   } catch (error) {
-    if (!res.headersSent) {
-      res.statusCode = 500;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.end(
-        JSON.stringify({
-          ok: false,
-          command: req.body?.command ?? null,
-          dest: null,
-          data: { error: "Internal server error" },
-        })
-      );
-    }
+    next(error);
   }
 };
 
-app.use("/api/anis", forward(anisHandler));
-app.use("/api/mcp", forward(mcpHandler));
+app.post("/api/anis", wrap(anis));
+app.post("/api/mcp", wrap(anis));
 
-app.all("*", (req, res) => {
+app.use((req, res) => {
   res.statusCode = 404;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(
@@ -36,6 +24,23 @@ app.all("*", (req, res) => {
       command: null,
       dest: null,
       data: { error: "Not Found" },
+    })
+  );
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  res.statusCode = err?.statusCode || 500;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(
+    JSON.stringify({
+      ok: false,
+      command: req.body?.command ?? null,
+      dest: null,
+      data: { error: "Internal server error" },
     })
   );
 });

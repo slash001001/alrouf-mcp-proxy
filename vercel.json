@@ -1,8 +1,6 @@
 {
-  "version": 2,
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  }
+  "routes": [
+    { "src": "/api/anis", "dest": "/api/anis.js" },
+    { "src": "/api/mcp", "dest": "/api/mcp.js" }
+  ]
 }

@@ -49,9 +49,20 @@ const readJsonBody = async (req) => {
   }
 };
 
+const findHeader = (headers, name) => {
+  if (!headers) return undefined;
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === target) {
+      return value;
+    }
+  }
+  return undefined;
+};
+
 const validateToken = (headers) => {
   const expected = process.env.MCP_TOKEN;
-  const provided = headers?.["x-mcp-token"];
+  const provided = findHeader(headers, "x-mcp-token");
 
   if (expected) {
     if (!provided || provided !== expected) {
@@ -65,12 +76,13 @@ const validateToken = (headers) => {
   }
 };
 
-const formatErrorPayload = ({ error, command, dest }) => ({
+const formatErrorPayload = ({ error, command, dest, actor }) => ({
   ok: false,
   command: command ?? null,
   dest: dest ?? null,
   data: {
     error: error.message,
+    actor: actor ?? undefined,
     details:
       error instanceof CommandRouterError
         ? error.data
@@ -102,12 +114,11 @@ export default async function handler(req, res) {
   try {
     body = await readJsonBody(req);
   } catch (error) {
-    const status =
-      error instanceof CommandRouterError ? error.status : 400;
+    const status = error instanceof CommandRouterError ? error.status : 400;
     sendJson(
       res,
       status,
-      formatErrorPayload({ error, command: body?.command, dest: null })
+      formatErrorPayload({ error, command: body?.command, dest: null, actor: body?.actor })
     );
     return;
   }
@@ -115,21 +126,21 @@ export default async function handler(req, res) {
   try {
     validateToken(req.headers);
   } catch (error) {
-    const status =
-      error instanceof CommandRouterError ? error.status : 401;
+    const status = error instanceof CommandRouterError ? error.status : 401;
     sendJson(
       res,
       status,
-      formatErrorPayload({ error, command: body?.command, dest: null })
+      formatErrorPayload({ error, command: body?.command, dest: null, actor: body?.actor })
     );
     return;
   }
 
   const command = body?.command;
   const args = body?.args;
+  const actor = body?.actor;
 
   try {
-    const result = await dispatchAutomationCommand({ command, args });
+    const result = await dispatchAutomationCommand({ command, args, actor });
     sendJson(res, 200, result);
   } catch (error) {
     if (error instanceof CommandRouterError) {
@@ -140,6 +151,7 @@ export default async function handler(req, res) {
           error,
           command,
           dest: error.dest,
+          actor,
         })
       );
       return;
@@ -149,7 +161,7 @@ export default async function handler(req, res) {
     sendJson(
       res,
       500,
-      formatErrorPayload({ error: safeError, command, dest: null })
+      formatErrorPayload({ error: safeError, command, dest: null, actor })
     );
   }
 }

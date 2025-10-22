@@ -27,6 +27,7 @@ Only `POST` (and `OPTIONS` for CORS) are supported.
 | `zap:*` | `ZAPIER_WEBHOOK_URL` |
 | `http` | Arbitrary HTTP call using `args.url`, `args.method`, `args.body` |
 | `status` | Local health summary |
+| `help` | Lists supported commands and sample payloads |
 
 Unknown commands return a structured help message with supported prefixes.
 
@@ -39,7 +40,9 @@ MCP_TOKEN=           # Optional: required header x-mcp-token if set
 N8N_WEBHOOK_URL=     # Required for run/report/summary/email/sheet
 ZAPIER_WEBHOOK_URL=  # Required for zap:* commands
 GH_TOKEN=            # Required for git:* commands
-GH_REPO=alrouf/n8n-automation-  # Optional override repository
+PORT=3000            # Local dev port (auto-detected in production)
+VERCEL_ORG_ID=       # Optional: enable vercel CLI deployments
+VERCEL_PROJECT_ID=   # Optional: enable vercel CLI deployments
 ```
 
 ## Local Development
