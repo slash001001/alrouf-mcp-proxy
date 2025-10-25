@@ -13,10 +13,11 @@ All responses share the shape `{ ok, command, dest, data }`.
 
 | Endpoint | Method | Description |
 | -------- | ------ | ----------- |
+| `/mcp` | POST | Streamable HTTP MCP server exposing tools (ping, anis command, fetch URL) |
 | `/api/anis` | POST | Primary router for ChatGPT / automations |
-| `/api/mcp`  | POST | Alias of `/api/anis` to keep legacy clients working |
+| `/api/mcp`  | POST | Legacy alias of `/api/anis` |
 
-Only `POST` (and `OPTIONS` for CORS) are supported.
+`/mcp` requires `Content-Type: application/json` and speaks the [Model Context Protocol Streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports/streamable-http) transport. `/api/*` endpoints also support `OPTIONS` for CORS preflight.
 
 ## Command Routing
 
@@ -36,10 +37,13 @@ Unknown commands return a structured help message with supported prefixes.
 Copy `.env.example` and supply:
 
 ```
-MCP_TOKEN=           # Optional: required header x-mcp-token if set
+MCP_TOKEN=           # Required header x-mcp-token for MCP + /api routes
+CORS_ORIGIN=         # Allowed browser origin (defaults to https://chat.openai.com)
 N8N_WEBHOOK_URL=     # Required for run/report/summary/email/sheet
 ZAPIER_WEBHOOK_URL=  # Required for zap:* commands
 GH_TOKEN=            # Required for git:* commands
+ANIS_URL=            # Optional override for /api/anis target when proxying via MCP
+PUBLIC_BASE_URL=     # Public deployment URL (used to resolve default ANIS_URL)
 PORT=3000            # Local dev port (auto-detected in production)
 VERCEL_ORG_ID=       # Optional: enable vercel CLI deployments
 VERCEL_PROJECT_ID=   # Optional: enable vercel CLI deployments
@@ -52,12 +56,35 @@ npm install
 npm start
 ```
 
-The express server proxies `/api/anis` and `/api/mcp` to the same router used in production.
+The express server hosts the MCP transport on `/mcp` in addition to `/api/anis`.
 
 ## Test Requests
 
-```
-curl -X POST http://localhost:3000/api/anis \
+```bash
+# Ping the MCP transport
+curl -s -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "x-mcp-token: $MCP_TOKEN" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":"1",
+    "method":"tools/call",
+    "params":{"name":"ping_connector","arguments":{}}
+  }'
+
+# Route a command via MCP -> /api/anis
+curl -s -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "x-mcp-token: $MCP_TOKEN" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":"2",
+    "method":"tools/call",
+    "params":{"name":"anis_command","arguments":{"command":"status"}}
+  }'
+
+# Direct call to /api/anis
+curl -s -X POST http://localhost:3000/api/anis \
   -H "Content-Type: application/json" \
   -H "x-mcp-token: $MCP_TOKEN" \
   -d '{"command":"status"}'

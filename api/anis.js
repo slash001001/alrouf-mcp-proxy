@@ -2,8 +2,15 @@ import { CommandRouterError, dispatchAutomationCommand } from "../lib/commandRou
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1 MiB
 
-const applyCors = (res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+const applyCors = (req, res) => {
+  const allowedOrigin = process.env.CORS_ORIGIN ?? "https://chat.openai.com";
+  const requestOrigin = typeof req.headers?.origin === "string" ? req.headers.origin : undefined;
+  if (!requestOrigin || requestOrigin === allowedOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "null");
+  }
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,x-mcp-token");
 };
@@ -92,7 +99,7 @@ const formatErrorPayload = ({ error, command, dest, actor }) => ({
 
 export default async function handler(req, res) {
   try {
-    applyCors(res);
+    applyCors(req, res);
 
     if (req.method === "OPTIONS") {
       res.statusCode = 204;
