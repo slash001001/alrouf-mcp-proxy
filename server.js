@@ -1,10 +1,27 @@
 import express from "express";
 const app = express();
 
+app.post("/mcp", (req, res) => {
+  res.status(200).json({
+    mcp: {
+      name: "anis-proxy",
+      version: "1.0.0",
+      capabilities: {
+        actions: [
+          {
+            name: "ping",
+            description: "Returns a health check ping",
+            parameters: { type: "object", properties: {} },
+          }
+        ]
+      },
+      message: "MCP handshake OK ✅"
+    }
+  });
+});
+
 app.get("/health", (req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  res.setHeader("Connection", "close");
-  return res.status(200).send(JSON.stringify({ ok: true, message: "MCP Connector ready ✅" }));
+  res.json({ ok: true, message: "MCP Connector ready ✅" });
 });
 
 app.get("/sse", (req, res) => {
