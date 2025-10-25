@@ -2,7 +2,9 @@ import express from "express";
 const app = express();
 
 app.get("/health", (req, res) => {
-  res.json({ ok: true, message: "MCP Connector ready ✅" });
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Connection", "close");
+  return res.status(200).send(JSON.stringify({ ok: true, message: "MCP Connector ready ✅" }));
 });
 
 app.get("/sse", (req, res) => {
