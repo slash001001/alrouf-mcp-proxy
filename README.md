@@ -13,11 +13,12 @@ All responses share the shape `{ ok, command, dest, data }`.
 
 | Endpoint | Method | Description |
 | -------- | ------ | ----------- |
-| `/mcp` | POST | Streamable HTTP MCP server exposing tools (ping, anis command, fetch URL) |
+| `/sse` | GET | Server-Sent Events health stream emitting "MCP Connector is live ✅" |
+| `/mcp` | GET/POST | Streamable HTTP MCP server exposing tools (ping, anis command, fetch URL) |
 | `/api/anis` | POST | Primary router for ChatGPT / automations |
 | `/api/mcp`  | POST | Legacy alias of `/api/anis` |
 
-`/mcp` requires `Content-Type: application/json` and speaks the [Model Context Protocol Streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports/streamable-http) transport. `/api/*` endpoints also support `OPTIONS` for CORS preflight.
+`/sse` is a lightweight health indicator used by ChatGPT Developer Mode. `/mcp` requires `Content-Type: application/json` and speaks the [Model Context Protocol Streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports/streamable-http) transport. `/api/*` endpoints also support `OPTIONS` for CORS preflight.
 
 ## Command Routing
 
@@ -61,6 +62,9 @@ The express server hosts the MCP transport on `/mcp` in addition to `/api/anis`.
 ## Test Requests
 
 ```bash
+# Stream the SSE health endpoint
+curl -N http://localhost:3000/sse
+
 # Ping the MCP transport
 curl -s -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \

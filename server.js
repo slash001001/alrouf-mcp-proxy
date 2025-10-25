@@ -40,6 +40,34 @@ const wrap = (handler) => async (req, res, next) => {
 app.post("/api/anis", wrap(anis));
 app.post("/api/mcp", wrap(anis));
 
+app.get("/sse", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  if (typeof res.flushHeaders === "function") {
+    res.flushHeaders();
+  }
+
+  const heartbeat = () => {
+    const payload = {
+      connector: "alrouf-mcp-proxy",
+      message: "MCP Connector is live ✅",
+      ts: new Date().toISOString(),
+    };
+
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  };
+
+  heartbeat();
+  const interval = setInterval(heartbeat, 15000);
+
+  req.on("close", () => {
+    clearInterval(interval);
+    res.end();
+  });
+});
+
 const requireMcpToken = (req, res, next) => {
   const requiredToken = process.env.MCP_TOKEN;
 
