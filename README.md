@@ -43,12 +43,24 @@ CORS_ORIGIN=         # Allowed browser origin (defaults to https://chat.openai.c
 N8N_WEBHOOK_URL=     # Required for run/report/summary/email/sheet
 ZAPIER_WEBHOOK_URL=  # Required for zap:* commands
 GH_TOKEN=            # Required for git:* commands
+GITHUB_TOKEN=        # Required for installing @modelcontextprotocol/sdk from GitHub Packages
 ANIS_URL=            # Optional override for /api/anis target when proxying via MCP
 PUBLIC_BASE_URL=     # Public deployment URL (used to resolve default ANIS_URL)
 PORT=3000            # Local dev port (auto-detected in production)
 VERCEL_ORG_ID=       # Optional: enable vercel CLI deployments
 VERCEL_PROJECT_ID=   # Optional: enable vercel CLI deployments
 ```
+
+### Required `.npmrc`
+
+The SDK is currently distributed through the GitHub Packages registry. Commit an `.npmrc` file alongside the project with:
+
+```
+@modelcontextprotocol:registry=https://npm.pkg.github.com/
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Set `GITHUB_TOKEN` to a Personal Access Token with the `read:packages` scope locally and inside Vercel so that `npm install` can authenticate.
 
 ## Local Development
 
