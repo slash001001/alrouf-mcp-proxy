@@ -162,19 +162,34 @@ mcpServer.registerTool(
   }
 );
 
-app.post("/mcp", requireMcpToken, async (req, res) => {
-  const transport = new StreamableHTTPServerTransport({
+const createTransport = () =>
+  new StreamableHTTPServerTransport({
     enableJsonResponse: true,
   });
 
+app.options("/mcp", requireMcpToken, (req, res) => {
+  res.setHeader("Allow", "GET,POST,OPTIONS");
+  res.sendStatus(204);
+});
+
+app.all("/mcp", requireMcpToken, async (req, res) => {
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("Allow", "GET,POST,OPTIONS");
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  const transport = createTransport();
   res.on("close", () => transport.close());
 
   await mcpServer.connect(transport);
-  await transport.handleRequest(req, res, req.body);
-});
 
-app.get("/mcp", requireMcpToken, async (req, res) => {
-  res.status(405).json({ error: "GET not supported. Use POST /mcp." });
+  if (req.method === "GET") {
+    await transport.handleRequest(req, res);
+    return;
+  }
+
+  await transport.handleRequest(req, res, req.body);
 });
 
 app.use((req, res) => {
