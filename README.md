@@ -94,6 +94,12 @@ Follow these steps to clear the 403 install error and bring the `/sse` health en
    curl -s https://alrouf-mcp-proxy.vercel.app/sse
    ```
    The response must contain `MCP Connector is live ✅`.
+   Alternatively, run the automated check locally:
+   ```bash
+   npm run verify:sse
+   # or target a remote deployment
+   SSE_URL=https://alrouf-mcp-proxy.vercel.app/sse npm run verify:sse
+   ```
 6. **Connect ChatGPT Developer Mode**
    - MCP Server URL: `https://alrouf-mcp-proxy.vercel.app/sse`
    - Authentication: **None** (for this health-only step)
