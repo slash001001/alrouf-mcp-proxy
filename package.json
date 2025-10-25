@@ -12,5 +12,12 @@
   },
   "engines": {
     "node": ">=18.17"
-  }
+  },
+  "description": "Serverless automation proxy that routes MCP commands to the correct backend:",
+  "directories": {
+    "lib": "lib"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
