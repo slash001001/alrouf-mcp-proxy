@@ -50,13 +50,7 @@ app.get("/sse", (req, res) => {
   }
 
   const heartbeat = () => {
-    const payload = {
-      connector: "alrouf-mcp-proxy",
-      message: "MCP Connector is live ✅",
-      ts: new Date().toISOString(),
-    };
-
-    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    res.write(`data: MCP Connector is live ✅\n\n`);
   };
 
   heartbeat();

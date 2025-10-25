@@ -62,6 +62,43 @@ The SDK is currently distributed through the GitHub Packages registry. Commit an
 
 Set `GITHUB_TOKEN` to a Personal Access Token with the `read:packages` scope locally and inside Vercel so that `npm install` can authenticate.
 
+## Quickstart Checklist (SSE Health)
+
+Follow these steps to clear the 403 install error and bring the `/sse` health endpoint online:
+
+1. **Configure Vercel secrets**
+   - `GITHUB_TOKEN` &rarr; PAT with the `read:packages` scope (needed for `@modelcontextprotocol/sdk`).
+   - `MCP_TOKEN` &rarr; strong random string.
+   - Optional: set `CORS_ORIGIN=https://chat.openai.com` if you expect browser access.
+2. **Commit the `.npmrc` registry mapping**
+   ```bash
+   echo "@modelcontextprotocol:registry=https://npm.pkg.github.com/" >> .npmrc
+   echo "//npm.pkg.github.com/:_authToken=\${GITHUB_TOKEN}" >> .npmrc
+   git add .npmrc
+   git commit -m "Add GitHub Packages auth for MCP SDK"
+   git push
+   ```
+3. **Install & build locally** (requires exporting `GITHUB_TOKEN`):
+   ```bash
+   export GITHUB_TOKEN=ghp_your_token
+   npm install
+   npm run build
+   ```
+4. **Trigger a Vercel deploy**
+   ```bash
+   git commit --allow-empty -m "Trigger redeploy"
+   git push
+   ```
+5. **Verify the health stream**
+   ```bash
+   curl -s https://alrouf-mcp-proxy.vercel.app/sse
+   ```
+   The response must contain `MCP Connector is live ✅`.
+6. **Connect ChatGPT Developer Mode**
+   - MCP Server URL: `https://alrouf-mcp-proxy.vercel.app/sse`
+   - Authentication: **None** (for this health-only step)
+   - Save and ensure you receive the ✅ confirmation.
+
 ## Local Development
 
 ```bash
