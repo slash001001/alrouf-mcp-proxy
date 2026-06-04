@@ -1,66 +1,86 @@
-# Anis Automation Proxy
+# Anis Alrouf MCP Proxy
 
-Serverless automation proxy that routes MCP commands to the correct backend:
+Serverless MCP and HTTP proxy for Anis / ChatGPT / automation clients.
 
-- **n8n Cloud** for operational workflows
-- **GitHub repository dispatch** for heavy/async tasks (`n8n-automation-`)
-- **Zapier** for Google Docs / Slack actions
-- **Direct HTTP** calls when required
+This repo includes a read-only connector for the Alrouf EA Email Intelligence API. Production credentials must stay only in deployment environment variables and must never be committed.
 
-All responses share the shape `{ ok, command, dest, data }`.
+## What this proxy does
 
-## Endpoints
+- Exposes MCP tools over `/sse`.
+- Exposes simple HTTP commands over `/api/anis` and `/api/mcp`.
+- Proxies safe read-only Alrouf EA calls under `/api/alrouf-ea/*`.
+- Keeps the EA credential server-side so clients do not receive it.
 
-| Endpoint | Method | Description |
-| -------- | ------ | ----------- |
-| `/api/anis` | POST | Primary router for ChatGPT / automations |
-| `/api/mcp`  | POST | Alias of `/api/anis` to keep legacy clients working |
+## Main endpoints
 
-Only `POST` (and `OPTIONS` for CORS) are supported.
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/health` | GET | Proxy health |
+| `/sse` | ALL | MCP Streamable HTTP endpoint |
+| `/api/anis` | POST | Structured command router |
+| `/api/mcp` | POST | Alias of `/api/anis` |
+| `/api/alrouf-ea/stats` | GET | EA corpus counters |
+| `/api/alrouf-ea/rfqs` | GET | RFQ records |
+| `/api/alrouf-ea/emails` | GET | Filtered email intelligence records |
+| `/api/alrouf-ea/search` | POST | Full text email search |
+| `/api/alrouf-ea/follow_up_gaps` | GET | Follow-up gaps |
+| `/api/alrouf-ea/review_queue` | GET | Human review queue |
+| `/api/alrouf-ea/schema` | GET | Schema metadata |
 
-## Command Routing
+## MCP tools
 
-| Command | Destination |
-| ------- | ----------- |
-| `run`, `report`, `summary`, `email`, `sheet` | `N8N_WEBHOOK_URL` |
-| `git:*` | GitHub `repository_dispatch` (`n8n-automation-`) |
-| `zap:*` | `ZAPIER_WEBHOOK_URL` |
-| `http` | Arbitrary HTTP call using `args.url`, `args.method`, `args.body` |
-| `status` | Local health summary |
-| `help` | Lists supported commands and sample payloads |
+- `ping`
+- `health`
+- `alrouf_ea_stats`
+- `alrouf_ea_emails`
+- `alrouf_ea_rfqs`
+- `alrouf_ea_customer`
+- `alrouf_ea_search`
+- `alrouf_ea_follow_up_gaps`
+- `alrouf_ea_review_queue`
+- `alrouf_ea_schema`
+- `alrouf_ea_sql`
 
-Unknown commands return a structured help message with supported prefixes.
-
-## Environment Variables
-
-Copy `.env.example` and supply:
-
-```
-MCP_TOKEN=           # Optional: required header x-mcp-token if set
-N8N_WEBHOOK_URL=     # Required for run/report/summary/email/sheet
-ZAPIER_WEBHOOK_URL=  # Required for zap:* commands
-GH_TOKEN=            # Required for git:* commands
-PORT=3000            # Local dev port (auto-detected in production)
-VERCEL_ORG_ID=       # Optional: enable vercel CLI deployments
-VERCEL_PROJECT_ID=   # Optional: enable vercel CLI deployments
-```
-
-## Local Development
+## Environment variables
 
 ```bash
-npm install
-npm start
+MCP_TOKEN="strong-random-token"
+ALROUF_EA_BASE_URL="https://radar.leenai.ai/ea/api"
+ALROUF_EA_API_KEY="rotated-ea-key"
+PORT=3000
 ```
 
-The express server proxies `/api/anis` and `/api/mcp` to the same router used in production.
+## Local run
 
-## Test Requests
-
-```
-curl -X POST http://localhost:3000/api/anis \
-  -H "Content-Type: application/json" \
-  -H "x-mcp-token: $MCP_TOKEN" \
-  -d '{"command":"status"}'
+```bash
+npm install && npm start
 ```
 
-Replace `status` with `run`, `git:sync`, etc. to validate routing.
+## Smoke test
+
+```bash
+npm run smoke
+```
+
+For deployed proxy:
+
+```bash
+CONNECTOR_BASE_URL="https://YOUR_DEPLOYMENT_DOMAIN" MCP_TOKEN="your-token" npm run smoke
+```
+
+## Command examples
+
+```bash
+curl -X POST "$CONNECTOR_BASE_URL/api/anis" -H "Content-Type: application/json" -H "x-mcp-token: $MCP_TOKEN" -d '{"command":"status"}'
+```
+
+```bash
+curl -X POST "$CONNECTOR_BASE_URL/api/anis" -H "Content-Type: application/json" -H "x-mcp-token: $MCP_TOKEN" -d '{"command":"alrouf:rfqs","args":{"since":"2026-05-01","min_confidence":80,"limit":20}}'
+```
+
+## Guardrails
+
+- Read-only connector behavior.
+- No email sending.
+- No Odoo writes.
+- No committed credentials or customer exports.
