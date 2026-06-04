@@ -1,4 +1,5 @@
 import express from "express";
+import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
@@ -15,9 +16,7 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 function requireMcpToken(req, res, next) {
   if (!MCP_TOKEN) return next();
   const provided = req.headers["x-mcp-token"] || req.headers.authorization?.replace(/^Bearer\s+/i, "");
-  if (provided !== MCP_TOKEN) {
-    return res.status(401).json({ ok: false, error: "Missing or invalid MCP token" });
-  }
+  if (provided !== MCP_TOKEN) return res.status(401).json({ ok: false, error: "Missing or invalid MCP token" });
   return next();
 }
 
@@ -82,22 +81,21 @@ function validateReadOnlySql(q) {
 function addQueryParams(url, params = {}) {
   for (const [key, raw] of Object.entries(params || {})) {
     if (raw === undefined || raw === null || raw === "") continue;
-    if (Array.isArray(raw)) {
-      raw.forEach((v) => url.searchParams.append(key, String(v)));
-    } else {
-      url.searchParams.set(key, String(raw));
-    }
+    if (Array.isArray(raw)) raw.forEach((v) => url.searchParams.append(key, String(v)));
+    else url.searchParams.set(key, String(raw));
   }
 }
 
 async function callEaApi(path, { method = "GET", params = {}, body = undefined } = {}) {
   const cleanPath = sanitizePath(path);
   assertEaConfigured();
+
   if (!isAllowedProxyCall(method, cleanPath)) {
     const error = new Error(`Proxy route not allowed: ${method} /${cleanPath}`);
     error.status = 405;
     throw error;
   }
+
   if (cleanPath === "sql" && method === "POST") {
     body = { ...(body || {}), q: validateReadOnlySql(body?.q) };
   }
@@ -127,12 +125,7 @@ async function callEaApi(path, { method = "GET", params = {}, body = undefined }
 
 function toToolText(payload) {
   return {
-    content: [
-      {
-        type: "text",
-        text: typeof payload === "string" ? payload : JSON.stringify(payload, null, 2)
-      }
-    ]
+    content: [{ type: "text", text: typeof payload === "string" ? payload : JSON.stringify(payload, null, 2) }]
   };
 }
 
@@ -167,23 +160,20 @@ const mcp = new McpServer({
   description: "Anis MCP proxy with read-only Alrouf EA Email Intelligence tools."
 });
 
+const optionalLimitOffset = {
+  limit: z.number().int().min(1).max(500).optional().default(20),
+  offset: z.number().int().min(0).optional().default(0)
+};
+
 mcp.registerTool(
   "ping",
-  {
-    title: "Ping",
-    description: "Returns pong to confirm MCP connectivity.",
-    inputSchema: { type: "object", properties: {} }
-  },
+  { title: "Ping", description: "Returns pong to confirm MCP connectivity.", inputSchema: {} },
   async () => toToolText({ ok: true, message: "pong" })
 );
 
 mcp.registerTool(
   "health",
-  {
-    title: "Health",
-    description: "Checks if the MCP proxy and Alrouf EA connector environment are configured.",
-    inputSchema: { type: "object", properties: {} }
-  },
+  { title: "Health", description: "Checks if the MCP proxy and Alrouf EA connector environment are configured.", inputSchema: {} },
   async () =>
     toToolText({
       ok: true,
@@ -196,11 +186,7 @@ mcp.registerTool(
 
 mcp.registerTool(
   "alrouf_ea_stats",
-  {
-    title: "Alrouf EA Stats",
-    description: "Get top-line counters across the Alrouf email intelligence corpus.",
-    inputSchema: { type: "object", properties: {} }
-  },
+  { title: "Alrouf EA Stats", description: "Get top-line counters across the Alrouf email intelligence corpus.", inputSchema: {} },
   async () => runTool("stats")
 );
 
@@ -210,27 +196,23 @@ mcp.registerTool(
     title: "Alrouf EA Emails",
     description: "Search/list Alrouf email intelligence records using safe filters.",
     inputSchema: {
-      type: "object",
-      properties: {
-        mailbox: { type: "string" },
-        sender: { type: "string" },
-        domain: { type: "string" },
-        direction: { type: "string", enum: ["inbound", "outbound", "internal"] },
-        category: { type: "string" },
-        inquiry_type: { type: "string" },
-        since: { type: "string" },
-        until: { type: "string" },
-        search: { type: "string" },
-        has_attachments: { type: "boolean" },
-        sales_related: { type: "boolean" },
-        needs_review: { type: "boolean" },
-        min_confidence: { type: "number" },
-        max_confidence: { type: "number" },
-        include_body: { type: "boolean" },
-        include_analysis: { type: "boolean" },
-        limit: { type: "number", default: 20 },
-        offset: { type: "number", default: 0 }
-      }
+      mailbox: z.string().optional(),
+      sender: z.string().optional(),
+      domain: z.string().optional(),
+      direction: z.enum(["inbound", "outbound", "internal"]).optional(),
+      category: z.string().optional(),
+      inquiry_type: z.string().optional(),
+      since: z.string().optional(),
+      until: z.string().optional(),
+      search: z.string().optional(),
+      has_attachments: z.boolean().optional(),
+      sales_related: z.boolean().optional(),
+      needs_review: z.boolean().optional(),
+      min_confidence: z.number().min(0).max(100).optional(),
+      max_confidence: z.number().min(0).max(100).optional(),
+      include_body: z.boolean().optional(),
+      include_analysis: z.boolean().optional(),
+      ...optionalLimitOffset
     }
   },
   async (args = {}) => runTool("emails", args)
@@ -242,15 +224,11 @@ mcp.registerTool(
     title: "Alrouf EA RFQs",
     description: "List RFQ-tagged emails with extracted products, quantities, deadlines, action, and evidence.",
     inputSchema: {
-      type: "object",
-      properties: {
-        customer: { type: "string" },
-        since: { type: "string" },
-        until: { type: "string" },
-        min_confidence: { type: "number", default: 0 },
-        limit: { type: "number", default: 20 },
-        offset: { type: "number", default: 0 }
-      }
+      customer: z.string().optional(),
+      since: z.string().optional(),
+      until: z.string().optional(),
+      min_confidence: z.number().min(0).max(100).optional().default(0),
+      ...optionalLimitOffset
     }
   },
   async (args = {}) => runTool("rfqs", args)
@@ -262,18 +240,11 @@ mcp.registerTool(
     title: "Alrouf EA Customer Memory",
     description: "Get a customer's memory card and recent email timeline.",
     inputSchema: {
-      type: "object",
-      required: ["customer"],
-      properties: {
-        customer: { type: "string" },
-        email_limit: { type: "number", default: 50 }
-      }
+      customer: z.string().min(1),
+      email_limit: z.number().int().min(1).max(500).optional().default(50)
     }
   },
-  async (args = {}) => {
-    const customer = encodeURIComponent(args.customer || "");
-    return runTool(`customers/${customer}`, pickDefined(args, ["email_limit"]));
-  }
+  async (args = {}) => runTool(`customers/${encodeURIComponent(args.customer)}`, pickDefined(args, ["email_limit"]))
 );
 
 mcp.registerTool(
@@ -282,13 +253,9 @@ mcp.registerTool(
     title: "Alrouf EA Full Text Search",
     description: "Free-text search over email subject/body, optionally only sales-related emails.",
     inputSchema: {
-      type: "object",
-      required: ["q"],
-      properties: {
-        q: { type: "string" },
-        sales_related_only: { type: "boolean", default: true },
-        limit: { type: "number", default: 20 }
-      }
+      q: z.string().min(1),
+      sales_related_only: z.boolean().optional().default(true),
+      limit: z.number().int().min(1).max(500).optional().default(20)
     }
   },
   async (args = {}) => runTool("search", args, "POST")
@@ -300,12 +267,8 @@ mcp.registerTool(
     title: "Alrouf EA Follow-Up Gaps",
     description: "Find cold conversations and follow-up gaps, filterable by severity.",
     inputSchema: {
-      type: "object",
-      properties: {
-        severity: { type: "string" },
-        limit: { type: "number", default: 50 },
-        offset: { type: "number", default: 0 }
-      }
+      severity: z.string().optional(),
+      ...optionalLimitOffset
     }
   },
   async (args = {}) => runTool("follow_up_gaps", args)
@@ -316,13 +279,7 @@ mcp.registerTool(
   {
     title: "Alrouf EA Review Queue",
     description: "List low-confidence calls awaiting human confirmation.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        limit: { type: "number", default: 50 },
-        offset: { type: "number", default: 0 }
-      }
-    }
+    inputSchema: optionalLimitOffset
   },
   async (args = {}) => runTool("review_queue", args)
 );
@@ -332,12 +289,7 @@ mcp.registerTool(
   {
     title: "Alrouf EA Schema",
     description: "Inspect allowed EA database schema metadata. Use before SQL.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        table: { type: "string" }
-      }
-    }
+    inputSchema: { table: z.string().optional() }
   },
   async (args = {}) => runTool(args.table ? `schema/${encodeURIComponent(args.table)}` : "schema")
 );
@@ -348,12 +300,8 @@ mcp.registerTool(
     title: "Alrouf EA Read-Only SQL",
     description: "Run a read-only SELECT/WITH/EXPLAIN query against the EA database. Never use for writes.",
     inputSchema: {
-      type: "object",
-      required: ["q"],
-      properties: {
-        q: { type: "string" },
-        params: { type: "array", items: {} }
-      }
+      q: z.string().min(1),
+      params: z.array(z.any()).optional()
     }
   },
   async (args = {}) => runTool("sql", args, "POST")
@@ -390,7 +338,7 @@ app.all("/api/alrouf-ea/*", requireMcpToken, async (req, res) => {
   }
 });
 
-app.post("/api/anis", requireMcpToken, async (req, res) => {
+async function handleAnisRouter(req, res) {
   const { command, args = {} } = req.body || {};
   try {
     if (command === "status") return res.json({ ok: true, command, dest: "local", data: { ea_configured: Boolean(EA_API_KEY) } });
@@ -399,19 +347,13 @@ app.post("/api/anis", requireMcpToken, async (req, res) => {
     if (command === "alrouf:emails") return res.json({ ok: true, command, dest: "alrouf-ea", data: await callEaApi("emails", { params: args }) });
     if (command === "alrouf:search") return res.json({ ok: true, command, dest: "alrouf-ea", data: await callEaApi("search", { method: "POST", body: args }) });
     if (command === "alrouf:sql") return res.json({ ok: true, command, dest: "alrouf-ea", data: await callEaApi("sql", { method: "POST", body: args }) });
-    return res.status(400).json({
-      ok: false,
-      error: "Unsupported command",
-      supported: ["status", "alrouf:stats", "alrouf:rfqs", "alrouf:emails", "alrouf:search", "alrouf:sql"]
-    });
+    return res.status(400).json({ ok: false, error: "Unsupported command", supported: ["status", "alrouf:stats", "alrouf:rfqs", "alrouf:emails", "alrouf:search", "alrouf:sql"] });
   } catch (error) {
     res.status(error.status || 500).json({ ok: false, command, error: error.message, status: error.status || 500 });
   }
-});
+}
 
-app.post("/api/mcp", requireMcpToken, (req, res) => {
-  req.url = "/api/anis";
-  app._router.handle(req, res);
-});
+app.post("/api/anis", requireMcpToken, handleAnisRouter);
+app.post("/api/mcp", requireMcpToken, handleAnisRouter);
 
 app.listen(PORT, () => console.log(`Anis Alrouf MCP proxy running on port ${PORT}`));
