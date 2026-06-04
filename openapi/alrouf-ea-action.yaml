@@ -1,0 +1,178 @@
+openapi: 3.0.3
+info:
+  title: Anis Alrouf EA Proxy
+  version: 1.1.0
+  description: Read-only connector through the Anis proxy. Replace the server URL after deployment.
+servers:
+  - url: https://your-deployed-proxy.example.com
+components:
+  securitySchemes:
+    mcpToken:
+      type: apiKey
+      in: header
+      name: x-mcp-token
+security:
+  - mcpToken: []
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Check proxy health
+      responses:
+        '200':
+          description: OK
+  /api/anis:
+    post:
+      operationId: anisCommand
+      summary: Run connector command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - command
+              properties:
+                command:
+                  type: string
+                  enum:
+                    - status
+                    - alrouf:stats
+                    - alrouf:rfqs
+                    - alrouf:emails
+                    - alrouf:search
+                    - alrouf:sql
+                args:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '200':
+          description: OK
+  /api/alrouf-ea/stats:
+    get:
+      operationId: getStats
+      summary: Get email intelligence counters
+      responses:
+        '200':
+          description: OK
+  /api/alrouf-ea/rfqs:
+    get:
+      operationId: listRfqs
+      summary: List RFQs
+      parameters:
+        - in: query
+          name: customer
+          schema:
+            type: string
+        - in: query
+          name: since
+          schema:
+            type: string
+        - in: query
+          name: until
+          schema:
+            type: string
+        - in: query
+          name: min_confidence
+          schema:
+            type: number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: OK
+  /api/alrouf-ea/emails:
+    get:
+      operationId: listEmails
+      summary: List filtered emails
+      parameters:
+        - in: query
+          name: mailbox
+          schema:
+            type: string
+        - in: query
+          name: sender
+          schema:
+            type: string
+        - in: query
+          name: domain
+          schema:
+            type: string
+        - in: query
+          name: direction
+          schema:
+            type: string
+            enum: [inbound, outbound, internal]
+        - in: query
+          name: inquiry_type
+          schema:
+            type: string
+        - in: query
+          name: since
+          schema:
+            type: string
+        - in: query
+          name: until
+          schema:
+            type: string
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: sales_related
+          schema:
+            type: boolean
+        - in: query
+          name: needs_review
+          schema:
+            type: boolean
+        - in: query
+          name: min_confidence
+          schema:
+            type: number
+        - in: query
+          name: max_confidence
+          schema:
+            type: number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: OK
+  /api/alrouf-ea/search:
+    post:
+      operationId: searchEmails
+      summary: Search emails
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - q
+              properties:
+                q:
+                  type: string
+                sales_related_only:
+                  type: boolean
+                  default: true
+                limit:
+                  type: integer
+                  default: 20
+      responses:
+        '200':
+          description: OK
