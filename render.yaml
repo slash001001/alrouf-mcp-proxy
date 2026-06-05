@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: anis-alrouf-mcp-proxy
+    env: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: MCP_TOKEN
+        sync: false
+      - key: ALROUF_EA_BASE_URL
+        value: https://radar.leenai.ai/ea/api
+      - key: ALROUF_EA_API_KEY
+        sync: false
