@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
   title: Anis Alrouf EA Proxy
-  version: 1.1.0
-  description: Read-only connector through the Anis proxy. Replace the server URL after deployment.
+  version: 1.1.1
+  description: Read-only connector through the Anis Alrouf MCP proxy deployed on Vercel.
 servers:
-  - url: https://your-deployed-proxy.example.com
+  - url: https://alrouf-mcp-proxy.vercel.app
 components:
   securitySchemes:
     mcpToken:
